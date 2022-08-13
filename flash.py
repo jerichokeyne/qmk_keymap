@@ -8,6 +8,7 @@ import serial.tools.list_ports
 from rich import print
 from rich.prompt import Prompt
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from glob import glob
 
 app = typer.Typer()
 
@@ -38,9 +39,18 @@ def get_serial_ports():
 
 
 @app.command()
-def flash(source_directory: Path = typer.Option(None), serial_port: Path = typer.Option(None), git_token: str = typer.Option(None)):
+def flash(hex_file: Path = typer.Option(None), serial_port: Path = typer.Option(None), git_token: str = typer.Option(None)):
+    if serial_port is None:
+        ports = get_serial_ports()
+        if len(ports) == 0:
+            print(':x: [bold red]No serial ports found[/bold red]')
+            return False
+        elif len(ports) > 1:
+            serial_port = Prompt.ask("Pick a serial port", choices=ports)
+        else:
+            serial_port = ports[0]
     tmp_dir = None
-    if source_directory is None:
+    if hex_file is None:
         if git_token is None:
             print(':x: [bold red]You must provide a git token to download new builds[/bold red]')
             return False
@@ -52,33 +62,20 @@ def flash(source_directory: Path = typer.Option(None), serial_port: Path = typer
                 return False
             progress.add_task(description="Saving latest build", total=None)
             tmp_dir = tempfile.TemporaryDirectory()
-            source_directory = tmp_dir.name
-            out_path = Path(f'{source_directory}/{f_name}')
+            out_path = Path(f'{tmp_dir.name}/{f_name}')
             out_path.write_bytes(zip_data)
             progress.add_task(description="Extracting latest build", total=None)
             with zipfile.ZipFile(out_path, 'r') as zip_ref:
-                zip_ref.extractall(source_directory)
-    if serial_port is None:
-        ports = get_serial_ports()
-        if len(ports) == 0:
-            print(':x: [bold red]No serial ports found[/bold red]')
-            return False
-        elif len(ports) > 1:
-            serial_port = Prompt.ask("Pick a serial port", choices=ports)
-        else:
-            serial_port = ports[0]
+                zip_ref.extractall(tmp_dir.name)
+            files = glob(f"{tmp_dir.name}/*.hex")
+            if len(files) == 0:
+                print(':x: [bold red]No hex files found[/bold red]')
+                return False
+            elif len(files) > 1:
+                hex_file = Prompt.ask("Pick a hex file", choices=files)
+            else:
+                hex_file = files[0]
 
-    subprocess.run(['podman', 'run',
-                    # Keep groups
-                    '--group-add', 'keep-groups',
-                    # Passthrough the serial port
-                    '--device', serial_port,
-                    # Set the SELinux labels
-                    '--security-opt', 'label=disable',
-                    # Passthrough the folder with the hex file
-                    '-v', f'{source_directory}:/code',
-                    # Specify the image to run
-                    'jkeyne/avrdude:latest'], cwd=source_directory)
-
+    subprocess.run(['avrdude', '-c', 'avr109', '-p', 'm32u4', '-P', serial_port, '-U', f"flash:w:{hex_file}:i"])
 if __name__ == '__main__':
     app()
