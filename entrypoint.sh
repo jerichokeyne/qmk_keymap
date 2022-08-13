@@ -10,7 +10,7 @@ elif [ "$num_files" -eq 0 ]; then
   exit 1
 fi
 port=$(find /dev -name 'tty*' -not -name 'tty')
-num_ports=$(echo "$file" | wc -l)
+num_ports=$(echo "$port" | wc -l)
 if [ "$num_ports" -gt 1 ]; then
   echo "Too many serial ports found" > /dev/stderr
   exit 1
