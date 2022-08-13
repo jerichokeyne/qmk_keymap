@@ -1,5 +1,3 @@
-#define MASTER_LEFT
-
 /* USB Device descriptor parameter */
 #define PRODUCT_ID   0x3435
 #define DEVICE_VER   0x0001
@@ -17,3 +15,12 @@
 #define MATRIX_COL_PINS { D4, C6, D1, E6, B5 }
 
 #define DIODE_DIRECTION COL2ROW
+
+#define USE_SERIAL
+//#define USE_I2C
+
+/* Select hand configuration */
+#define MASTER_LEFT
+//#define MASTER_RIGHT
+
+#define EE_HANDS
